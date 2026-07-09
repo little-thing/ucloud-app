@@ -11,3 +11,7 @@ build/
 .idea/
 **/GeneratedPluginRegistrant.*
 .DS_Store
+
+# Google Apps Script / clasp
+gas/.clasp.json
+.clasprc.json
