@@ -4,7 +4,10 @@ import '../models/schedule_rule.dart';
 import 'api_exception.dart';
 import 'compshare_api_client.dart';
 
-/// 批量启停 / 重启编排。
+/// 批量启停编排。
+///
+/// 启动：仅 `Stopped` 会真正开机；已 `Running` 等状态记为跳过。
+/// 关闭：仅 `Running` 会关机；其余跳过。
 class InstanceBatchService {
   InstanceBatchService(this._api);
 
@@ -79,6 +82,19 @@ class InstanceBatchService {
     );
   }
 
+  Future<BatchOpResult> runSchedule(
+    ScheduleRule rule,
+    List<CompShareInstance> allInstances,
+  ) async {
+    final targets = allInstances
+        .where((e) => rule.instanceIds.contains(e.uHostId))
+        .toList();
+    return switch (rule.action) {
+      ScheduleAction.start => startMany(targets, mode: rule.startMode),
+      ScheduleAction.stop => stopMany(targets),
+    };
+  }
+
   Future<BatchOpResult> rebootMany(List<CompShareInstance> instances) async {
     final succeeded = <String>[];
     final skipped = <String>[];
@@ -104,18 +120,5 @@ class InstanceBatchService {
       skipped: skipped,
       failed: failed,
     );
-  }
-
-  Future<BatchOpResult> runSchedule(
-    ScheduleRule rule,
-    List<CompShareInstance> allInstances,
-  ) async {
-    final targets = allInstances
-        .where((e) => rule.instanceIds.contains(e.uHostId))
-        .toList();
-    return switch (rule.action) {
-      ScheduleAction.reboot => rebootMany(targets),
-      ScheduleAction.stop => stopMany(targets),
-    };
   }
 }

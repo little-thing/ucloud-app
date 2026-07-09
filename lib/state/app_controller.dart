@@ -220,7 +220,7 @@ class AppController extends ChangeNotifier {
         rule.lastRunAt = now;
         rule.nextRunAt = rule.computeNextRun(from: now);
         statusMessage =
-            '定时${rule.action.label}：${result.summary(rule.action.label)}';
+            '定时${rule.actionDetailLabel}：${result.summary(rule.action.label)}';
         changed = true;
         await refreshInstances(silent: true);
       } catch (e) {

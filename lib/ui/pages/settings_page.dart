@@ -131,7 +131,8 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 12),
             const Text(
               '密钥保存在本机 SharedPreferences，仅自用。\n'
-              '定时规则在 App 前台/进程存活时检查执行；Mac 开机更稳。',
+              '定时规则依赖 App 进程存活：退出或被系统杀掉后不会执行；'
+              'Mac 保持开着更稳，iOS 后台不可靠。',
               style: TextStyle(
                 fontSize: 13,
                 color: CupertinoColors.secondaryLabel,

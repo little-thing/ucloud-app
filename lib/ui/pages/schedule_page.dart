@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/app_models.dart';
 import '../../models/schedule_rule.dart';
 import '../../state/app_controller.dart';
 
@@ -35,7 +36,7 @@ class _SchedulePageState extends State<SchedulePage> {
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        '暂无规则\n可设置每 N 天自动批量重启或关闭',
+                        '暂无规则\n可设置每 N 天自动批量启动或关闭',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: CupertinoColors.secondaryLabel,
@@ -118,7 +119,7 @@ class _RuleTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '每 ${rule.intervalDays} 天 · ${rule.action.label} · ${rule.timeLabel}',
+                    '每 ${rule.intervalDays} 天 · ${rule.actionDetailLabel} · ${rule.timeLabel}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -173,6 +174,7 @@ class ScheduleEditorPage extends StatefulWidget {
 class _ScheduleEditorPageState extends State<ScheduleEditorPage> {
   late int _intervalDays;
   late ScheduleAction _action;
+  late StartMode _startMode;
   late Set<String> _ids;
   late bool _enabled;
   late final TextEditingController _hourCtrl;
@@ -184,6 +186,7 @@ class _ScheduleEditorPageState extends State<ScheduleEditorPage> {
     final e = widget.existing;
     _intervalDays = e?.intervalDays ?? 1;
     _action = e?.action ?? ScheduleAction.stop;
+    _startMode = e?.startMode ?? StartMode.normal;
     _ids = {...?e?.instanceIds};
     _enabled = e?.enabled ?? true;
     _hourCtrl = TextEditingController(text: '${e?.hour ?? 3}');
@@ -252,6 +255,30 @@ class _ScheduleEditorPageState extends State<ScheduleEditorPage> {
                 if (v != null) setState(() => _action = v);
               },
             ),
+            if (_action == ScheduleAction.start) ...[
+              const SizedBox(height: 16),
+              const Text(
+                '启动模式',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: CupertinoColors.secondaryLabel,
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoSlidingSegmentedControl<StartMode>(
+                groupValue: _startMode,
+                children: {
+                  for (final mode in StartMode.values)
+                    mode: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(mode == StartMode.normal ? '正常' : '无卡'),
+                    ),
+                },
+                onValueChanged: (v) {
+                  if (v != null) setState(() => _startMode = v);
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             const Text(
               '每 N 天',
@@ -400,6 +427,7 @@ class _ScheduleEditorPageState extends State<ScheduleEditorPage> {
       hour: hour,
       minute: minute,
       action: _action,
+      startMode: _startMode,
       instanceIds: _ids.toList(),
       lastRunAt: widget.existing?.lastRunAt,
     );

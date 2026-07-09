@@ -1,16 +1,20 @@
 import 'dart:convert';
 
-/// 本地「每 N 天」批量操作规则。
+import 'app_models.dart';
+
+/// 本地「每 N 天」批量操作规则：启动或关闭。
 enum ScheduleAction {
-  reboot,
+  start,
   stop;
 
   String get label => switch (this) {
-        ScheduleAction.reboot => '重启',
+        ScheduleAction.start => '启动',
         ScheduleAction.stop => '关闭',
       };
 
   static ScheduleAction fromName(String name) {
+    // 兼容旧版「重启」规则，按启动处理。
+    if (name == 'reboot') return ScheduleAction.start;
     return ScheduleAction.values.firstWhere(
       (e) => e.name == name,
       orElse: () => ScheduleAction.stop,
@@ -27,6 +31,7 @@ class ScheduleRule {
     required this.minute,
     required this.action,
     required this.instanceIds,
+    this.startMode = StartMode.normal,
     this.lastRunAt,
     this.nextRunAt,
   });
@@ -37,6 +42,9 @@ class ScheduleRule {
   int hour;
   int minute;
   ScheduleAction action;
+
+  /// 仅 `action == start` 时生效：正常 / 无卡。
+  StartMode startMode;
   List<String> instanceIds;
   DateTime? lastRunAt;
   DateTime? nextRunAt;
@@ -47,6 +55,13 @@ class ScheduleRule {
     return '$h:$m';
   }
 
+  String get actionDetailLabel {
+    if (action == ScheduleAction.start) {
+      return '${action.label}（${startMode.label}）';
+    }
+    return action.label;
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'enabled': enabled,
@@ -54,6 +69,7 @@ class ScheduleRule {
         'hour': hour,
         'minute': minute,
         'action': action.name,
+        'startMode': startMode.name,
         'instanceIds': instanceIds,
         'lastRunAt': lastRunAt?.toIso8601String(),
         'nextRunAt': nextRunAt?.toIso8601String(),
@@ -67,6 +83,7 @@ class ScheduleRule {
       hour: (json['hour'] as num?)?.toInt() ?? 3,
       minute: (json['minute'] as num?)?.toInt() ?? 0,
       action: ScheduleAction.fromName((json['action'] ?? 'stop').toString()),
+      startMode: StartMode.fromName((json['startMode'] ?? 'normal').toString()),
       instanceIds: ((json['instanceIds'] as List?) ?? const [])
           .map((e) => e.toString())
           .toList(),

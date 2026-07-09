@@ -62,4 +62,11 @@ enum StartMode {
       };
 
   bool get withoutGpu => this == StartMode.noGpu;
+
+  static StartMode fromName(String name) {
+    return StartMode.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => StartMode.normal,
+    );
+  }
 }

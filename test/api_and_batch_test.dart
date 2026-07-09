@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:compshare_manager/models/app_models.dart';
 import 'package:compshare_manager/models/comp_share_instance.dart';
+import 'package:compshare_manager/models/schedule_rule.dart';
 import 'package:compshare_manager/services/api_exception.dart';
 import 'package:compshare_manager/services/compshare_api_client.dart';
 import 'package:compshare_manager/services/instance_batch_service.dart';
@@ -191,6 +192,42 @@ void main() {
       ]);
       expect(result.succeeded, ['r1']);
       expect(result.skipped, ['r2']);
+    });
+
+    test('runSchedule start skips already running and uses startMode', () async {
+      final calls = <Map<String, dynamic>>[];
+      final api = CompShareApiClient(
+        credentials: const ApiCredentials(publicKey: 'pk', privateKey: 'sk'),
+        poster: (url, {headers, body}) async {
+          calls.add(jsonDecode(body as String) as Map<String, dynamic>);
+          return http.Response(
+            jsonEncode({'RetCode': 0, 'UHostId': 'ok'}),
+            200,
+          );
+        },
+      );
+      final batch = InstanceBatchService(api);
+      final result = await batch.runSchedule(
+        ScheduleRule(
+          id: 's1',
+          enabled: true,
+          intervalDays: 1,
+          hour: 3,
+          minute: 0,
+          action: ScheduleAction.start,
+          startMode: StartMode.noGpu,
+          instanceIds: const ['a', 'b'],
+        ),
+        [
+          inst(id: 'a', state: 'Stopped'),
+          inst(id: 'b', state: 'Running'),
+        ],
+      );
+      expect(result.succeeded, ['a']);
+      expect(result.skipped, ['b']);
+      expect(calls, hasLength(1));
+      expect(calls.first['Action'], 'StartCompShareInstance');
+      expect(calls.first['WithoutGpu'], true);
     });
   });
 }
