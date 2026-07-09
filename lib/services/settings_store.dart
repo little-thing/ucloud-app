@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/app_log.dart';
 import '../models/app_models.dart';
-import '../models/schedule_rule.dart';
 
 class SettingsStore {
   SettingsStore({SharedPreferences? prefs}) : _prefs = prefs;
@@ -14,8 +12,8 @@ class SettingsStore {
   static const _kPrivateKey = 'private_key';
   static const _kRegion = 'region';
   static const _kBaseUrl = 'base_url';
-  static const _kRules = 'schedule_rules';
   static const _kPollSeconds = 'poll_seconds';
+  static const _kLogs = 'app_logs';
 
   Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -57,26 +55,19 @@ class SettingsStore {
     await prefs.setInt(_kPollSeconds, seconds.clamp(2, 30));
   }
 
-  Future<List<ScheduleRule>> loadRules() async {
+  Future<List<AppLog>> loadLogs() async {
     await init();
-    final raw = prefs.getStringList(_kRules) ?? const [];
-    return raw.map(ScheduleRule.decode).toList();
+    final raw = prefs.getStringList(_kLogs) ?? const [];
+    return raw.map(AppLog.decode).toList();
   }
 
-  Future<void> saveRules(List<ScheduleRule> rules) async {
+  Future<void> saveLogs(List<AppLog> logs) async {
     await init();
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final kept = logs.where((e) => e.at.isAfter(cutoff)).toList();
     await prefs.setStringList(
-      _kRules,
-      rules.map((e) => e.encode()).toList(),
-    );
-  }
-
-  /// 测试辅助：直接写入 JSON 列表。
-  Future<void> saveRulesRaw(List<Map<String, dynamic>> rules) async {
-    await init();
-    await prefs.setStringList(
-      _kRules,
-      rules.map(jsonEncode).toList(),
+      _kLogs,
+      kept.map((e) => e.encode()).toList(),
     );
   }
 }

@@ -18,12 +18,12 @@ void main() {
       expect(signature, 'cba5cf5ec4d4233d206b1b54951e3787350a642f');
     });
 
-    test('encodes bool as true/false', () {
+    test('encodes string WithoutGpuSpec in signature payload', () {
       final signature = signer.sign(
         {
           'Action': 'StartCompShareInstance',
           'PublicKey': 'pk',
-          'WithoutGpu': true,
+          'WithoutGpuSpec': 'A',
         },
         'sk',
       );
@@ -31,7 +31,7 @@ void main() {
         {
           'Action': 'StartCompShareInstance',
           'PublicKey': 'pk',
-          'WithoutGpu': true,
+          'WithoutGpuSpec': 'A',
         },
         'sk',
       );

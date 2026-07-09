@@ -6,8 +6,8 @@
 
 - 实例列表与状态轮询
 - 多选 / 全选，一键启动、关闭、重启
-- 所有启动动作均可选：正常 / 无卡（`WithoutGpu`）
-- 本地「每 N 天」批量启动或关闭（启动规则同样可选正常/无卡；已运行则跳过）
+- 所有启动动作均可选：正常 / 无卡 A（`WithoutGpuSpec=A`，2核4G）/ 无卡 B（`WithoutGpuSpec=B`，8核16G）
+- 近 7 天运行日志（设置旁入口，倒序）
 - API 密钥本地保存（自用）
 
 ## 运行
@@ -20,9 +20,4 @@ flutter run -d macos   # 或 iOS 真机 / 模拟器
 
 在 App「设置」中填写控制台 API 公钥与私钥（`https://console.compshare.cn/uaccount/api_manage`）。
 
-## 定时说明
-
-定时规则由 App 进程内调度，**需要软件保持运行**。退出或被系统杀掉后，到点不会执行。
-
-- Mac：保持 App 开着较稳
-- iOS：切后台/锁屏后调度不可靠，退出后一定不生效
+不依赖 App 常开的周期任务（每 5 天无卡启动再关闭）见 **[AUTOMATION.md](./AUTOMATION.md)**（Google Apps Script）。

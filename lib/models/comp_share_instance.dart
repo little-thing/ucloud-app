@@ -45,7 +45,11 @@ class CompShareInstance {
   bool get canStop => isRunning;
   bool get canReboot => isRunning;
 
+  /// 当前是否以无卡规格运行（列表返回 GPU=0）。
+  bool get isRunningWithoutGpu => isRunning && gpu == 0;
+
   String get displayGpu {
+    if (isRunningWithoutGpu) return '无卡';
     if (gpuType.isEmpty && gpu == 0) return '无 GPU 信息';
     if (gpuType.isEmpty) return '$gpu 卡';
     return '$gpuType × $gpu';

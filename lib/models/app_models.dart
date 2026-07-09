@@ -52,16 +52,27 @@ class BatchOpResult {
   }
 }
 
+/// 启动模式。无卡对应 `StartCompShareInstance.WithoutGpuSpec`：
+/// `A`=2核4G，`B`=8核16G；不传则为有卡启动。
 enum StartMode {
   normal,
-  noGpu;
+  noGpuA,
+  noGpuB;
 
   String get label => switch (this) {
         StartMode.normal => '正常启动',
-        StartMode.noGpu => '无卡模式',
+        StartMode.noGpuA => '无卡 A (2核4G)',
+        StartMode.noGpuB => '无卡 B (8核16G)',
       };
 
-  bool get withoutGpu => this == StartMode.noGpu;
+  /// 传给启动接口的规格档位；`null` 表示有卡启动。
+  String? get withoutGpuSpec => switch (this) {
+        StartMode.normal => null,
+        StartMode.noGpuA => 'A',
+        StartMode.noGpuB => 'B',
+      };
+
+  bool get isWithoutGpu => withoutGpuSpec != null;
 
   static StartMode fromName(String name) {
     return StartMode.values.firstWhere(

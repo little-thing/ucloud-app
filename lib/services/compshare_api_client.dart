@@ -70,14 +70,15 @@ class CompShareApiClient {
   Future<String> startInstance({
     required String zone,
     required String uHostId,
-    bool withoutGpu = false,
+    String? withoutGpuSpec,
   }) async {
     final data = await _invoke({
       'Action': 'StartCompShareInstance',
       'Region': _credentials.region,
       'Zone': zone,
       'UHostId': uHostId,
-      if (withoutGpu) 'WithoutGpu': true,
+      if (withoutGpuSpec != null && withoutGpuSpec.isNotEmpty)
+        'WithoutGpuSpec': withoutGpuSpec,
     });
     return (data['UHostId'] ?? uHostId).toString();
   }

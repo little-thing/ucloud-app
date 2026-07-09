@@ -2,14 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/app_log.dart';
 import '../models/app_models.dart';
 import '../models/comp_share_instance.dart';
-import '../models/schedule_rule.dart';
 import '../services/compshare_api_client.dart';
 import '../services/instance_batch_service.dart';
 import '../services/settings_store.dart';
 
-/// 应用状态：实例列表、多选、轮询、本地定时规则。
+/// 应用状态：实例列表、多选、轮询、运行日志。
 class AppController extends ChangeNotifier {
   AppController({
     required CompShareApiClient api,
@@ -25,7 +25,7 @@ class AppController extends ChangeNotifier {
 
   List<CompShareInstance> instances = const [];
   final Set<String> selectedIds = {};
-  List<ScheduleRule> rules = [];
+  List<AppLog> logs = [];
   ApiCredentials credentials = const ApiCredentials(publicKey: '', privateKey: '');
   StartMode startMode = StartMode.normal;
   bool loading = false;
@@ -36,25 +36,19 @@ class AppController extends ChangeNotifier {
   DateTime? lastRefreshedAt;
 
   Timer? _pollTimer;
-  Timer? _scheduleTimer;
   bool _busyRefresh = false;
 
   Future<void> bootstrap({bool enableBackgroundTasks = true}) async {
     credentials = await _store.loadCredentials();
     pollSeconds = await _store.loadPollSeconds();
-    rules = await _store.loadRules();
+    logs = await _store.loadLogs();
     _api.updateCredentials(credentials);
-    for (final rule in rules) {
-      rule.nextRunAt ??= rule.computeNextRun();
-    }
-    await _store.saveRules(rules);
     notifyListeners();
     if (credentials.isConfigured) {
       await refreshInstances();
     }
     if (enableBackgroundTasks) {
       startPolling();
-      startScheduleWatcher();
     }
   }
 
@@ -64,13 +58,6 @@ class AppController extends ChangeNotifier {
       if (credentials.isConfigured && !operating) {
         unawaited(refreshInstances(silent: true));
       }
-    });
-  }
-
-  void startScheduleWatcher() {
-    _scheduleTimer?.cancel();
-    _scheduleTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      unawaited(_tickSchedules());
     });
   }
 
@@ -86,6 +73,7 @@ class AppController extends ChangeNotifier {
     await _store.saveCredentials(next);
     _api.updateCredentials(next);
     errorMessage = null;
+    await _appendLog('已更新 API 密钥配置');
     notifyListeners();
     if (next.isConfigured) {
       await refreshInstances();
@@ -110,8 +98,12 @@ class AppController extends ChangeNotifier {
       selectedIds.removeWhere((id) => !list.any((e) => e.uHostId == id));
       lastRefreshedAt = DateTime.now();
       errorMessage = null;
+      if (!silent) {
+        await _appendLog('刷新实例列表：${list.length} 台');
+      }
     } catch (e) {
       errorMessage = e.toString();
+      await _appendLog('刷新实例失败：$e', level: AppLogLevel.error);
     } finally {
       loading = false;
       _busyRefresh = false;
@@ -124,6 +116,14 @@ class AppController extends ChangeNotifier {
 
   bool get allSelected =>
       instances.isNotEmpty && selectedIds.length == instances.length;
+
+  /// 近 7 天日志，按时间倒序。
+  List<AppLog> get recentLogs {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    final filtered = logs.where((e) => e.at.isAfter(cutoff)).toList();
+    filtered.sort((a, b) => b.at.compareTo(a.at));
+    return filtered;
+  }
 
   void toggleSelect(String id) {
     if (selectedIds.contains(id)) {
@@ -176,11 +176,16 @@ class AppController extends ChangeNotifier {
     try {
       final result = await runner(targets);
       statusMessage = result.summary(label);
+      await _appendLog(
+        '$label ${targets.length} 台：${result.summary(label)}'
+        '${startMode.isWithoutGpu && label == '启动' ? '（${startMode.label}）' : ''}',
+      );
       await refreshInstances(silent: true);
       return result;
     } catch (e) {
       errorMessage = e.toString();
       statusMessage = null;
+      await _appendLog('$label失败：$e', level: AppLogLevel.error);
       return null;
     } finally {
       operating = false;
@@ -188,61 +193,25 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> upsertRule(ScheduleRule rule) async {
-    rule.nextRunAt = rule.computeNextRun();
-    final idx = rules.indexWhere((e) => e.id == rule.id);
-    if (idx >= 0) {
-      rules[idx] = rule;
-    } else {
-      rules = [...rules, rule];
-    }
-    await _store.saveRules(rules);
-    notifyListeners();
+  Future<void> _appendLog(
+    String message, {
+    AppLogLevel level = AppLogLevel.info,
+  }) async {
+    final entry = AppLog(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      at: DateTime.now(),
+      message: message,
+      level: level,
+    );
+    logs = [entry, ...logs];
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    logs = logs.where((e) => e.at.isAfter(cutoff)).toList();
+    await _store.saveLogs(logs);
   }
-
-  Future<void> deleteRule(String id) async {
-    rules = rules.where((e) => e.id != id).toList();
-    await _store.saveRules(rules);
-    notifyListeners();
-  }
-
-  Future<void> _tickSchedules() async {
-    if (!credentials.isConfigured || operating || instances.isEmpty) return;
-    final now = DateTime.now();
-    var changed = false;
-    for (final rule in rules) {
-      if (!rule.isDue(now)) continue;
-      operating = true;
-      statusMessage = '定时规则执行中：${rule.action.label}';
-      notifyListeners();
-      try {
-        final result = await _batch.runSchedule(rule, instances);
-        rule.lastRunAt = now;
-        rule.nextRunAt = rule.computeNextRun(from: now);
-        statusMessage =
-            '定时${rule.actionDetailLabel}：${result.summary(rule.action.label)}';
-        changed = true;
-        await refreshInstances(silent: true);
-      } catch (e) {
-        errorMessage = '定时任务失败: $e';
-      } finally {
-        operating = false;
-        notifyListeners();
-      }
-    }
-    if (changed) {
-      await _store.saveRules(rules);
-      notifyListeners();
-    }
-  }
-
-  /// 测试用：立即检查并执行到期规则。
-  Future<void> tickSchedulesNow() => _tickSchedules();
 
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _scheduleTimer?.cancel();
     super.dispose();
   }
 }

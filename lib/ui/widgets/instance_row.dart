@@ -132,7 +132,16 @@ class InstanceRow extends StatelessWidget {
                       color: CupertinoColors.secondaryLabel,
                     ),
                   ),
-                  if (instance.supportWithoutGpuStart) ...[
+                  if (instance.isRunningWithoutGpu) ...[
+                    const SizedBox(height: 4),
+                    const Text(
+                      '无卡运行中',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: CupertinoColors.systemOrange,
+                      ),
+                    ),
+                  ] else if (instance.supportWithoutGpuStart) ...[
                     const SizedBox(height: 4),
                     const Text(
                       '支持无卡启动',

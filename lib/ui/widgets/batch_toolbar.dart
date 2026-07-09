@@ -70,10 +70,14 @@ class BatchToolbar extends StatelessWidget {
                 children: {
                   for (final mode in StartMode.values)
                     mode: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Text(
-                        mode == StartMode.normal ? '正常' : '无卡',
-                        style: const TextStyle(fontSize: 13),
+                        switch (mode) {
+                          StartMode.normal => '正常',
+                          StartMode.noGpuA => '无卡A',
+                          StartMode.noGpuB => '无卡B',
+                        },
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                 },

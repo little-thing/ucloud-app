@@ -95,7 +95,7 @@ function testOneCycle() {
     Region: REGION,
     Zone: target.Zone,
     UHostId: target.UHostId,
-    WithoutGpu: true,
+    WithoutGpuSpec: 'A',
   });
   waitStateByList_(creds.publicKey, creds.privateKey, target.UHostId, ['Running'], 180);
   Logger.log('已 Running，关机...');
@@ -131,7 +131,7 @@ function runCycle() {
       Region: REGION,
       Zone: inst.Zone,
       UHostId: inst.UHostId,
-      WithoutGpu: true,
+      WithoutGpuSpec: 'A',
     });
   });
 

@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:compshare_manager/models/app_models.dart';
 import 'package:compshare_manager/models/comp_share_instance.dart';
-import 'package:compshare_manager/models/schedule_rule.dart';
 import 'package:compshare_manager/services/api_exception.dart';
 import 'package:compshare_manager/services/compshare_api_client.dart';
 import 'package:compshare_manager/services/instance_batch_service.dart';
@@ -55,7 +54,7 @@ void main() {
       expect(list.first.supportWithoutGpuStart, isTrue);
     });
 
-    test('startInstance sends WithoutGpu when requested', () async {
+    test('startInstance sends WithoutGpuSpec when requested', () async {
       Map<String, dynamic>? seen;
       final client = CompShareApiClient(
         credentials: const ApiCredentials(publicKey: 'pk', privateKey: 'sk'),
@@ -74,10 +73,11 @@ void main() {
       await client.startInstance(
         zone: 'cn-wlcb-01',
         uHostId: 'uhost-1',
-        withoutGpu: true,
+        withoutGpuSpec: 'A',
       );
       expect(seen!['Action'], 'StartCompShareInstance');
-      expect(seen!['WithoutGpu'], true);
+      expect(seen!['WithoutGpuSpec'], 'A');
+      expect(seen!.containsKey('WithoutGpu'), isFalse);
     });
 
     test('throws CompShareApiException on RetCode != 0', () async {
@@ -145,24 +145,25 @@ void main() {
           inst(id: 'b', state: 'Running'),
           inst(id: 'c', state: 'Stopped', supportWithoutGpu: false),
         ],
-        mode: StartMode.noGpu,
+        mode: StartMode.noGpuA,
       );
 
       expect(result.succeeded, ['a']);
       expect(result.skipped, ['b']);
       expect(result.failed.map((e) => e.id), ['c']);
       expect(calls, hasLength(1));
-      expect(calls.first['WithoutGpu'], true);
+      expect(calls.first['WithoutGpuSpec'], 'A');
+      expect(calls.first.containsKey('WithoutGpu'), isFalse);
     });
 
-    test('stopMany forces spot instances', () async {
-      Map<String, dynamic>? seen;
+    test('stopMany calls API regardless of state and forces spot', () async {
+      final calls = <Map<String, dynamic>>[];
       final api = CompShareApiClient(
         credentials: const ApiCredentials(publicKey: 'pk', privateKey: 'sk'),
         poster: (url, {headers, body}) async {
-          seen = jsonDecode(body as String) as Map<String, dynamic>;
+          calls.add(jsonDecode(body as String) as Map<String, dynamic>);
           return http.Response(
-            jsonEncode({'RetCode': 0, 'UHostId': 's1'}),
+            jsonEncode({'RetCode': 0, 'UHostId': 'ok'}),
             200,
           );
         },
@@ -170,9 +171,14 @@ void main() {
       final batch = InstanceBatchService(api);
       final result = await batch.stopMany([
         inst(id: 's1', state: 'Running', isSpot: true),
+        inst(id: 's2', state: 'Initializing'),
+        inst(id: 's3', state: 'Stopped'),
       ]);
-      expect(result.succeeded, ['s1']);
-      expect(seen!['Force'], true);
+      expect(result.succeeded, ['s1', 's2', 's3']);
+      expect(result.skipped, isEmpty);
+      expect(calls, hasLength(3));
+      expect(calls.first['Force'], true);
+      expect(calls[1]['Force'], isNot(true));
     });
 
     test('rebootMany only running', () async {
@@ -192,42 +198,6 @@ void main() {
       ]);
       expect(result.succeeded, ['r1']);
       expect(result.skipped, ['r2']);
-    });
-
-    test('runSchedule start skips already running and uses startMode', () async {
-      final calls = <Map<String, dynamic>>[];
-      final api = CompShareApiClient(
-        credentials: const ApiCredentials(publicKey: 'pk', privateKey: 'sk'),
-        poster: (url, {headers, body}) async {
-          calls.add(jsonDecode(body as String) as Map<String, dynamic>);
-          return http.Response(
-            jsonEncode({'RetCode': 0, 'UHostId': 'ok'}),
-            200,
-          );
-        },
-      );
-      final batch = InstanceBatchService(api);
-      final result = await batch.runSchedule(
-        ScheduleRule(
-          id: 's1',
-          enabled: true,
-          intervalDays: 1,
-          hour: 3,
-          minute: 0,
-          action: ScheduleAction.start,
-          startMode: StartMode.noGpu,
-          instanceIds: const ['a', 'b'],
-        ),
-        [
-          inst(id: 'a', state: 'Stopped'),
-          inst(id: 'b', state: 'Running'),
-        ],
-      );
-      expect(result.succeeded, ['a']);
-      expect(result.skipped, ['b']);
-      expect(calls, hasLength(1));
-      expect(calls.first['Action'], 'StartCompShareInstance');
-      expect(calls.first['WithoutGpu'], true);
     });
   });
 }

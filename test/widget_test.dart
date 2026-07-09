@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:compshare_manager/models/app_models.dart';
-import 'package:compshare_manager/models/schedule_rule.dart';
 import 'package:compshare_manager/services/compshare_api_client.dart';
 import 'package:compshare_manager/services/settings_store.dart';
 import 'package:compshare_manager/state/app_controller.dart';
@@ -107,9 +106,9 @@ void main() {
     await tester.pump();
     expect(controller.selectedIds.length, 2);
 
-    await tester.tap(find.text('无卡'));
+    await tester.tap(find.text('无卡A'));
     await tester.pump();
-    expect(controller.startMode, StartMode.noGpu);
+    expect(controller.startMode, StartMode.noGpuA);
 
     await tester.tap(find.text('启动'));
     await tester.pump();
@@ -119,28 +118,25 @@ void main() {
       postedBodies.any((e) => e['Action'] == 'StartCompShareInstance'),
       isTrue,
     );
-  });
-
-  test('schedule rule due triggers stop', () async {
-    await buildController();
-    expect(controller.instances, isNotEmpty);
-    controller.rules = [
-      ScheduleRule(
-        id: 'rule-1',
-        enabled: true,
-        intervalDays: 1,
-        hour: 0,
-        minute: 0,
-        action: ScheduleAction.stop,
-        instanceIds: const ['uhost-b'],
-        nextRunAt: DateTime.now().subtract(const Duration(minutes: 1)),
-      ),
-    ];
-    await controller.tickSchedulesNow();
-    expect(controller.statusMessage, contains('定时关闭'));
     expect(
-      postedBodies.any((e) => e['Action'] == 'StopCompShareInstance'),
+      postedBodies.any((e) => e['WithoutGpuSpec'] == 'A'),
       isTrue,
     );
+    expect(controller.recentLogs, isNotEmpty);
+    expect(controller.recentLogs.first.message, contains('启动'));
+  });
+
+  test('batch ops append logs in reverse chronological order', () async {
+    await buildController();
+    controller.toggleSelect('uhost-a');
+    await controller.startSelected();
+    controller.clearSelection();
+    controller.toggleSelect('uhost-b');
+    await controller.stopSelected();
+
+    final logs = controller.recentLogs;
+    expect(logs.length, greaterThanOrEqualTo(2));
+    expect(logs.first.at.isAfter(logs[1].at) || logs.first.at.isAtSameMomentAs(logs[1].at), isTrue);
+    expect(logs.first.message, contains('关闭'));
   });
 }

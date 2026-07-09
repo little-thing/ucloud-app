@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../state/app_controller.dart';
 import '../widgets/batch_toolbar.dart';
 import '../widgets/instance_row.dart';
-import 'schedule_page.dart';
+import 'logs_page.dart';
 import 'settings_page.dart';
 
 class InstancesPage extends StatelessWidget {
@@ -22,17 +22,6 @@ class InstancesPage extends StatelessWidget {
         return CupertinoPageScaffold(
           navigationBar: CupertinoNavigationBar(
             middle: const Text('优云智算'),
-            leading: CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (_) => SchedulePage(controller: controller),
-                  ),
-                );
-              },
-              child: const Icon(CupertinoIcons.clock),
-            ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -44,6 +33,17 @@ class InstancesPage extends StatelessWidget {
                   child: controller.loading
                       ? const CupertinoActivityIndicator()
                       : const Icon(CupertinoIcons.refresh),
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => LogsPage(controller: controller),
+                      ),
+                    );
+                  },
+                  child: const Icon(CupertinoIcons.doc_text),
                 ),
                 CupertinoButton(
                   padding: EdgeInsets.zero,
